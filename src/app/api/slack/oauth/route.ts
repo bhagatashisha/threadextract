@@ -22,6 +22,7 @@ export async function GET(req: Request) {
         client_id: process.env.SLACK_CLIENT_ID || "",
         client_secret: process.env.SLACK_CLIENT_SECRET || "",
         code: code,
+        redirect_uri: `${process.env.NEXT_PUBLIC_BASE_URL || "https://threadextract-uat.korrali.com"}/api/slack/oauth`,
       }),
     });
 
