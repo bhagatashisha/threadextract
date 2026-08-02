@@ -118,8 +118,13 @@ export default async function LandingPage() {
       {/* Pricing */}
       <section id="pricing" className="border-b border-border/40 bg-muted/10 py-16">
         <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center mb-6">
+            <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 text-blue-700 font-medium text-xs border border-blue-200 shadow-sm">
+              Keep your existing Notion setup. No migrating to a new clunky wiki.
+            </span>
+          </div>
           <h2 className="text-3xl font-bold text-center text-foreground mb-2">Simple, workspace-wide pricing</h2>
-          <p className="text-center text-muted-foreground mb-10">No per-seat fees. One price for your whole team.</p>
+          <p className="text-center text-muted-foreground mb-10">Other tools charge $15/seat. We charge a flat $29/mo for your whole workspace.</p>
           <div className="grid sm:grid-cols-2 gap-6">
             <div className="rounded-2xl border border-border bg-card p-6">
               <h3 className="text-lg font-bold text-foreground mb-1">{FREE_PLAN.label}</h3>

@@ -168,7 +168,12 @@ export async function extractAndPublish(opts: {
   return { title: aiData.title, notionPageUrl, notionPageId: page.id };
 }
 
-export async function processSlackThread(slackTeamId: string, channelId: string, messageTs: string) {
+export async function processSlackThread(
+  slackTeamId: string,
+  channelId: string,
+  messageTs: string,
+  reaction: string,
+) {
   try {
     // 1. Fetch workspace credentials
     const workspace = await prisma.workspace.findUnique({
@@ -180,7 +185,15 @@ export async function processSlackThread(slackTeamId: string, channelId: string,
       return;
     }
 
-    // 2. Enforce the plan's usage cap BEFORE any paid AI/Notion API call —
+    // 2. Only proceed if this reaction is one of the workspace's configured
+    // triggers (defaults to ["brain"], i.e. 🧠-only — configurable on the
+    // dashboard so teams can reuse an emoji convention they already have).
+    // Checked before any DB write or paid API call — cheapest possible gate.
+    if (!workspace.triggerEmojis.includes(reaction)) {
+      return;
+    }
+
+    // 3. Enforce the plan's usage cap BEFORE any paid AI/Notion API call —
     // this is the actual cost-control point, not just a UI gate.
     if (!(await canUseFeature(workspace))) {
       console.log(`Workspace ${slackTeamId} is over its free-tier extraction cap for this month.`);
@@ -190,7 +203,7 @@ export async function processSlackThread(slackTeamId: string, channelId: string,
     const slackToken = safeDecrypt(workspace.slackAccessToken);
     const notionToken = safeDecrypt(workspace.notionAccessToken);
 
-    // 3. Fetch the thread from Slack
+    // 4. Fetch the thread from Slack
     const slack = new WebClient(slackToken);
     const repliesRes = await slack.conversations.replies({
       channel: channelId,
@@ -207,7 +220,7 @@ export async function processSlackThread(slackTeamId: string, channelId: string,
       .map((m) => `User ${m.user || "Unknown"}: ${m.text}`)
       .join("\n\n");
 
-    // 4-6. AI processing + Notion push + usage recording
+    // 5-7. AI processing + Notion push + usage recording
     const result = await extractAndPublish({
       workspaceId: workspace.id,
       rawTranscript,

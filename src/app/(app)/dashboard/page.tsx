@@ -7,6 +7,7 @@ import { encrypt, safeDecrypt } from "@/lib/crypto";
 import { getEffectiveTier, getTrialState, extractionsThisMonth } from "@/lib/billing";
 import { FREE_TIER_MONTHLY_CAP } from "@/lib/pricing";
 import { buildSlackOAuthUrl } from "@/lib/slack-oauth-url";
+import { TRIGGER_EMOJI_OPTIONS, sanitizeTriggerEmojis } from "@/lib/trigger-emojis";
 import { revalidatePath } from "next/cache";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,29 @@ async function saveNotionConfig(formData: FormData) {
 
   revalidatePath("/dashboard");
 }
+
+async function saveTriggerEmojis(formData: FormData) {
+  "use server";
+
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Not signed in");
+
+  const emojis = formData.getAll("triggerEmojis") as string[];
+  const sanitized = sanitizeTriggerEmojis(emojis);
+
+  const workspace = await prisma.workspace.findFirst({
+    where: { ownerUserId: session.user.id },
+  });
+  if (!workspace) throw new Error("No connected workspace found for this account");
+
+  await prisma.workspace.update({
+    where: { id: workspace.id },
+    data: { triggerEmojis: sanitized },
+  });
+
+  revalidatePath("/dashboard");
+}
+
 
 function relativeTime(date: Date): string {
   const seconds = Math.round((Date.now() - date.getTime()) / 1000);
@@ -181,6 +205,37 @@ export default async function DashboardPage() {
             </div>
 
             <SubmitButton loadingLabel="Saving…">Save configuration</SubmitButton>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Extraction triggers</CardTitle>
+          <CardDescription>Select which Slack emojis should trigger extraction.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={saveTriggerEmojis} className="space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {TRIGGER_EMOJI_OPTIONS.map((opt) => (
+                <label
+                  key={opt.shortcode}
+                  className="flex items-center gap-2 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer select-none"
+                >
+                  <input
+                    type="checkbox"
+                    name="triggerEmojis"
+                    value={opt.shortcode}
+                    defaultChecked={workspace.triggerEmojis.includes(opt.shortcode)}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600 focus:ring-2 accent-blue-600 cursor-pointer"
+                  />
+                  <span>
+                    {opt.emoji} <span className="text-sm text-muted-foreground ml-1">{opt.label}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <SubmitButton loadingLabel="Saving…">Save triggers</SubmitButton>
           </form>
         </CardContent>
       </Card>

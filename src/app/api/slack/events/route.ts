@@ -42,11 +42,17 @@ export async function POST(req: Request) {
           console.warn("reaction_added event missing reaction field", event);
         } else if (typeof body.team_id !== "string" || body.team_id.length === 0) {
           console.warn("event_callback missing team_id", body);
-        } else if (reaction === "brain" && isValidItem) {
+        } else if (isValidItem) {
+          // Whether `reaction` is actually one of this workspace's configured
+          // trigger emojis is decided inside processSlackThread, alongside
+          // the workspace lookup it already needs to do — keeps this route
+          // purely structural (shape validation) rather than duplicating
+          // per-workspace config here.
+          //
           // IMPORTANT: We do not `await` this!
           // Slack requires a 200 OK within 3 seconds. We kick off the AI process in the background.
           // On EC2 / standard node environments, this fire-and-forget promise works perfectly.
-          processSlackThread(body.team_id, item.channel, item.ts).catch(console.error);
+          processSlackThread(body.team_id, item.channel, item.ts, reaction).catch(console.error);
         }
       }
     }

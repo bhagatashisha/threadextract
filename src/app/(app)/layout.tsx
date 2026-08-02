@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { signOutAction } from "@/lib/actions/auth";
+import { UserMenu } from "@/components/user-menu";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -23,13 +24,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               Billing
             </Link>
             {session?.user?.email && (
-              <span className="hidden sm:inline text-muted-foreground">{session.user.email}</span>
+              <UserMenu email={session.user.email} signOutAction={signOutAction} />
             )}
-            <form action={signOutAction}>
-              <button type="submit" className="text-muted-foreground hover:text-foreground">
-                Sign out
-              </button>
-            </form>
           </nav>
         </div>
       </header>

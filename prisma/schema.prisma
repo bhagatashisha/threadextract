@@ -72,6 +72,10 @@ model Workspace {
   slackAccessToken   String
   notionAccessToken  String?
   notionDatabaseId   String?
+  // Slack reaction shortcode names (no colons, e.g. "brain", "pushpin") that
+  // trigger extraction for this workspace. Defaults to the original 🧠-only
+  // behavior; configurable per-workspace on the dashboard.
+  triggerEmojis      String[]      @default(["brain"])
   ownerUserId        String?
   owner              User?         @relation(fields: [ownerUserId], references: [id])
   pricingTier        PricingTier   @default(TRIAL)
