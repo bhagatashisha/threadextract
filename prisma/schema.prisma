@@ -10,12 +10,100 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// --- Auth.js / NextAuth Prisma adapter models ---
+
+model User {
+  id            String      @id @default(cuid())
+  email         String      @unique
+  name          String?
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime    @default(now())
+  accounts      Account[]
+  sessions      Session[]
+  workspaces    Workspace[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// --- ThreadExtract domain models ---
+
+enum PricingTier {
+  TRIAL
+  FREE
+  PRO
+}
+
 model Workspace {
-  id                 String   @id @default(uuid())
-  slackTeamId        String   @unique
+  id                 String        @id @default(uuid())
+  slackTeamId        String        @unique
   slackAccessToken   String
   notionAccessToken  String?
   notionDatabaseId   String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  ownerUserId        String?
+  owner              User?         @relation(fields: [ownerUserId], references: [id])
+  pricingTier        PricingTier   @default(TRIAL)
+  trialEndsAt        DateTime?
+  stripeCustomerId   String?       @unique
+  subscription       Subscription?
+  extractions        Extraction[]
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([ownerUserId])
+}
+
+model Subscription {
+  id                   String    @id @default(cuid())
+  workspaceId          String    @unique
+  workspace            Workspace @relation(fields: [workspaceId], references: [id])
+  stripeSubscriptionId String?   @unique
+  status               String
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
+
+model Extraction {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id])
+  title         String?
+  notionPageUrl String?
+  createdAt     DateTime  @default(now())
+
+  @@index([workspaceId, createdAt])
 }

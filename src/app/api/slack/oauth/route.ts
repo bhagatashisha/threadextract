@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/db";
+import { encrypt } from "@/lib/crypto";
+import { verifyOAuthState, signWorkspaceClaim } from "@/lib/claim-token";
 
-const prisma = new PrismaClient();
+const TRIAL_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+
+  if (!verifyOAuthState(state)) {
+    return NextResponse.json({ error: "Invalid or expired OAuth state" }, { status: 400 });
+  }
 
   if (!code) {
     return NextResponse.json({ error: "Missing code parameter" }, { status: 400 });
@@ -28,31 +35,42 @@ export async function GET(req: Request) {
 
     const slackData = await slackRes.json();
 
-    if (!slackData.ok) {
+    if (!slackData.ok || !slackData.team?.id) {
       console.error("Slack OAuth Error:", slackData);
       return NextResponse.json({ error: "Failed to authorize Slack" }, { status: 400 });
     }
 
-    // Save or update the Workspace in our database
-    await prisma.workspace.upsert({
+    // Save or update the Workspace in our database. Trial is only granted on
+    // first install — reinstalling an existing workspace must not reset it.
+    const workspace = await prisma.workspace.upsert({
       where: {
         slackTeamId: slackData.team.id,
       },
       update: {
-        slackAccessToken: slackData.access_token,
+        slackAccessToken: encrypt(slackData.access_token),
       },
       create: {
         slackTeamId: slackData.team.id,
-        slackAccessToken: slackData.access_token,
+        slackAccessToken: encrypt(slackData.access_token),
+        pricingTier: "TRIAL",
+        trialEndsAt: new Date(Date.now() + TRIAL_DURATION_MS),
       },
     });
 
-    // Redirect the user to the dashboard to configure Notion
-    const dashboardUrl = new URL("/dashboard", req.url);
-    dashboardUrl.searchParams.set("team_id", slackData.team.id);
-    
-    return NextResponse.redirect(dashboardUrl);
+    // Slack's OAuth response tells us which Slack team installed the app,
+    // not which human is at the browser — send them through a claim step
+    // that binds this workspace to whichever account they sign in with.
+    //
+    // Built from NEXT_PUBLIC_BASE_URL rather than req.url: behind the
+    // nginx/EC2 reverse proxy, req.url reflects the internal
+    // localhost:PORT address Next.js actually received the request on,
+    // not the public hostname — redirecting to that sends the browser to
+    // an address it can't reach.
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://threadextract-uat.korrali.com";
+    const claimUrl = new URL("/claim", baseUrl);
+    claimUrl.searchParams.set("token", signWorkspaceClaim(workspace.id));
 
+    return NextResponse.redirect(claimUrl);
   } catch (error) {
     console.error("Error during Slack OAuth:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

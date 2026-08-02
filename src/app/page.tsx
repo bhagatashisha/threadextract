@@ -1,8 +1,22 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowRight, Bot, Database, Zap, ShieldCheck } from "lucide-react";
+import { auth } from "@/lib/auth";
+import { buildSlackOAuthUrl } from "@/lib/slack-oauth-url";
+import { FREE_PLAN, PRO_PLAN } from "@/lib/pricing";
 
-export default function LandingPage() {
-  const SLACK_OAUTH_URL = "https://slack.com/oauth/v2/authorize?client_id=11212471347943.11711872146599&scope=channels:history,groups:history,im:history,mpim:history,reactions:read,chat:write&redirect_uri=https://threadextract-uat.korrali.com/api/slack/oauth";
+// This page embeds a short-lived signed OAuth state token in the "Add to
+// Slack" link — it must be generated per-request, not baked into a
+// statically prerendered page at build time (which would expire ~10 minutes
+// after every deploy and break the install link for everyone until the next
+// build).
+export const dynamic = "force-dynamic";
+
+export default async function LandingPage() {
+  const session = await auth();
+  if (session?.user) redirect("/dashboard");
+
+  const SLACK_OAUTH_URL = buildSlackOAuthUrl();
 
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-blue-100">
@@ -19,6 +33,9 @@ export default function LandingPage() {
             </Link>
             <Link href="/contact" className="hidden sm:inline-flex rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted">
               Contact us
+            </Link>
+            <Link href="/login" className="hidden sm:inline-flex rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted">
+              Sign in
             </Link>
             <Link href={SLACK_OAUTH_URL} className="rounded-lg bg-gradient-to-b from-[#10b981] to-[#3b82f6] px-4 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90">
               Add to Slack
@@ -90,12 +107,60 @@ export default function LandingPage() {
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-foreground tracking-tight mb-1">Zero Behavior Change</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">Don't force engineers to write docs. Just ask them to click an emoji when a problem is solved.</p>
+                  <p className="text-muted-foreground text-sm leading-relaxed">Don&apos;t force engineers to write docs. Just ask them to click an emoji when a problem is solved.</p>
                 </div>
               </div>
             </div>
           </div>
         </main>
+      </section>
+
+      {/* Pricing */}
+      <section id="pricing" className="border-b border-border/40 bg-muted/10 py-16">
+        <div className="max-w-4xl mx-auto px-4">
+          <h2 className="text-3xl font-bold text-center text-foreground mb-2">Simple, workspace-wide pricing</h2>
+          <p className="text-center text-muted-foreground mb-10">No per-seat fees. One price for your whole team.</p>
+          <div className="grid sm:grid-cols-2 gap-6">
+            <div className="rounded-2xl border border-border bg-card p-6">
+              <h3 className="text-lg font-bold text-foreground mb-1">{FREE_PLAN.label}</h3>
+              <p className="text-sm text-muted-foreground mb-4">{FREE_PLAN.tagline}</p>
+              <p className="text-3xl font-extrabold text-foreground mb-4">{FREE_PLAN.price}</p>
+              <ul className="space-y-2 text-sm text-muted-foreground mb-6">
+                {FREE_PLAN.features.map((f) => (
+                  <li key={f}>&bull; {f}</li>
+                ))}
+              </ul>
+              <Link
+                href={SLACK_OAUTH_URL}
+                className="block text-center rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted transition-colors"
+              >
+                Add to Slack
+              </Link>
+            </div>
+            <div className="rounded-2xl border-2 border-[#10b981]/40 bg-card p-6 relative">
+              <span className="absolute -top-3 left-6 rounded-full bg-gradient-to-b from-[#10b981] to-[#3b82f6] px-3 py-1 text-xs font-semibold text-white">
+                14-day free trial
+              </span>
+              <h3 className="text-lg font-bold text-foreground mb-1">{PRO_PLAN.label}</h3>
+              <p className="text-sm text-muted-foreground mb-4">{PRO_PLAN.tagline}</p>
+              <p className="text-3xl font-extrabold text-foreground mb-1">{PRO_PLAN.monthlyPrice}</p>
+              <p className="text-xs text-muted-foreground mb-4">
+                or {PRO_PLAN.annualPrice} ({PRO_PLAN.annualPerMonth})
+              </p>
+              <ul className="space-y-2 text-sm text-muted-foreground mb-6">
+                {PRO_PLAN.features.map((f) => (
+                  <li key={f}>&bull; {f}</li>
+                ))}
+              </ul>
+              <Link
+                href={SLACK_OAUTH_URL}
+                className="block text-center rounded-lg bg-gradient-to-b from-[#10b981] to-[#3b82f6] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-colors"
+              >
+                Start free trial
+              </Link>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* Footer */}

@@ -6,7 +6,7 @@ module.exports = {
       args: "start",
       cwd: "/home/ec2-user/threadextract/uat",
       env: {
-        PORT: 3030,
+        PORT: 3130,
         NODE_ENV: "production",
       },
     },
@@ -16,7 +16,7 @@ module.exports = {
       args: "start",
       cwd: "/home/ec2-user/threadextract/prod",
       env: {
-        PORT: 3031,
+        PORT: 3131,
         NODE_ENV: "production",
       },
     },
