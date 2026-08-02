@@ -6,7 +6,7 @@
 
 export type BillingInterval = "monthly" | "annual";
 
-export const FREE_TIER_MONTHLY_CAP = 5;
+export const FREE_TIER_MONTHLY_CAP = 10;
 
 export const FREE_PLAN = {
   label: "Free",
@@ -21,15 +21,32 @@ export const FREE_PLAN = {
 
 export const PRO_PLAN = {
   label: "Pro",
-  monthlyPrice: "$29/mo",
-  annualPrice: "$290/yr",
-  annualPerMonth: "$24/mo",
+  monthlyPrice: "$49/mo",
+  annualPrice: "$490/yr",
+  annualPerMonth: "$41/mo",
   tagline: "Unlimited extractions for your whole workspace.",
   features: [
     "Unlimited thread extractions",
     "One connected Notion database",
     "Priority support",
+    "Slack confirmation messages",
+  ],
+};
+
+export const TEAM_PLAN = {
+  label: "Team",
+  monthlyPrice: "$99/mo",
+  annualPrice: "$990/yr",
+  annualPerMonth: "$83/mo",
+  tagline: "Advanced features for scaling teams.",
+  features: [
+    "Everything in Pro",
+    "Multiple Notion databases",
+    "Channel → database routing",
+    "Analytics dashboard",
+    "Priority support",
   ],
 };
 
 export const TRIAL_DAYS = 14;
+

@@ -69,7 +69,7 @@ async function generateContentWithFallback(prompt: string): Promise<string | nul
     try {
       console.log("Attempting generation with Gemini...");
       const genAI = new GoogleGenerativeAI(key);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
       const result = await withTimeout(model.generateContent(prompt), GEMINI_TIMEOUT_MS, "Gemini");
       return result.response.text();
     } catch (error) {
@@ -86,7 +86,7 @@ async function generateContentWithFallback(prompt: string): Promise<string | nul
       const completion = await withTimeout(
         groq.chat.completions.create({
           messages: [{ role: "user", content: prompt }],
-          model: "llama3-8b-8192",
+          model: "llama-3.3-70b-versatile",
         }),
         GROQ_TIMEOUT_MS,
         "Groq",
