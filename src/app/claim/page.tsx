@@ -67,16 +67,7 @@ export default async function ClaimPage({
     );
   }
 
-  if (workspace.ownerUserId && workspace.ownerUserId !== session.user.id) {
-    return (
-      <ErrorCard
-        title="Already connected to another account"
-        message="This Slack workspace is already connected to a different ThreadExtract account. Contact support if this seems wrong."
-      />
-    );
-  }
-
-  if (!workspace.ownerUserId) {
+  if (workspace.ownerUserId !== session.user.id) {
     await prisma.workspace.update({
       where: { id: workspace.id },
       data: { ownerUserId: session.user.id },

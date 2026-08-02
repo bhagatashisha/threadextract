@@ -28,17 +28,11 @@ export default async function LandingPage() {
             <span className="text-base">Korrali ThreadExtract</span>
           </Link>
           <div className="flex items-center gap-2">
-            <Link href="/tools" className="hidden sm:inline-flex rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted">
-              Free tools
-            </Link>
             <Link href="/contact" className="hidden sm:inline-flex rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted">
               Contact us
             </Link>
-            <Link href="/login" className="hidden sm:inline-flex rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted">
+            <Link href="/login" className="rounded-lg bg-gradient-to-b from-[#10b981] to-[#3b82f6] px-4 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90">
               Sign in
-            </Link>
-            <Link href={SLACK_OAUTH_URL} className="rounded-lg bg-gradient-to-b from-[#10b981] to-[#3b82f6] px-4 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90">
-              Add to Slack
             </Link>
           </div>
         </div>

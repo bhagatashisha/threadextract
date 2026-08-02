@@ -1,17 +1,29 @@
-import { requireWorkspaceContext } from "@/lib/workspace-context";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 import { getEffectiveTier, getTrialState, extractionsThisMonth } from "@/lib/billing";
 import { FREE_PLAN, PRO_PLAN, FREE_TIER_MONTHLY_CAP, STRIPE_PRICE_IDS } from "@/lib/stripe";
 import { StripeCheckoutButton } from "@/components/billing/StripeCheckoutButton";
 import { createPortalAction } from "@/lib/actions/checkout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { buildSlackOAuthUrl } from "@/lib/slack-oauth-url";
 
 export default async function BillingPage() {
-  const { workspace } = await requireWorkspaceContext("/billing");
-  const tier = await getEffectiveTier(workspace);
-  const trial = getTrialState(workspace);
-  const usedThisMonth = await extractionsThisMonth(workspace.id);
+  const session = await auth();
+  if (!session?.user?.id) {
+    redirect("/login?callbackUrl=/billing");
+  }
+
+  const workspace = await prisma.workspace.findFirst({
+    where: { ownerUserId: session.user.id },
+  });
+
+  const tier = workspace ? await getEffectiveTier(workspace) : "TRIAL";
+  const trial = workspace ? getTrialState(workspace) : { daysRemaining: 7 };
+  const usedThisMonth = workspace ? await extractionsThisMonth(workspace.id) : 0;
   const stripeConfigured = Boolean(STRIPE_PRICE_IDS.proMonthly);
+  const SLACK_OAUTH_URL = buildSlackOAuthUrl();
 
   return (
     <div className="py-12 px-4">
@@ -74,20 +86,32 @@ export default async function BillingPage() {
                     <li key={f}>&bull; {f}</li>
                   ))}
                 </ul>
-                {stripeConfigured ? (
-                  <div className="space-y-2">
-                    <StripeCheckoutButton interval="monthly">Upgrade monthly</StripeCheckoutButton>
-                    <StripeCheckoutButton interval="annual" variant="outline">
-                      Upgrade annual ({PRO_PLAN.annualPerMonth})
-                    </StripeCheckoutButton>
-                  </div>
+                {workspace ? (
+                  stripeConfigured ? (
+                    <div className="space-y-2">
+                      <StripeCheckoutButton interval="monthly">Upgrade monthly</StripeCheckoutButton>
+                      <StripeCheckoutButton interval="annual" variant="outline">
+                        Upgrade annual ({PRO_PLAN.annualPerMonth})
+                      </StripeCheckoutButton>
+                    </div>
+                  ) : (
+                    <a
+                      href="mailto:hello@korrali.com?subject=ThreadExtract%20Pro"
+                      className="inline-flex text-sm text-blue-600 hover:underline"
+                    >
+                      Contact us to upgrade &rarr;
+                    </a>
+                  )
                 ) : (
-                  <a
-                    href="mailto:hello@korrali.com?subject=ThreadExtract%20Pro"
-                    className="inline-flex text-sm text-blue-600 hover:underline"
-                  >
-                    Contact us to upgrade &rarr;
-                  </a>
+                  <div className="space-y-2">
+                    <a
+                      href={SLACK_OAUTH_URL}
+                      className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-[#10b981] to-[#3b82f6] px-4 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90 w-full"
+                    >
+                      Connect to Slack
+                    </a>
+                    <p className="text-xs text-center text-muted-foreground mt-2">Connect a workspace first to upgrade to Pro.</p>
+                  </div>
                 )}
               </CardContent>
             </Card>
