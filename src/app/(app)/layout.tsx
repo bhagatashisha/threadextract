@@ -20,6 +20,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Link href="/dashboard" className="text-foreground hover:underline">
               Dashboard
             </Link>
+            <Link href="/settings" className="text-foreground hover:underline">
+              Settings
+            </Link>
             <Link href="/billing" className="text-foreground hover:underline">
               Billing
             </Link>
