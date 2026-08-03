@@ -135,8 +135,9 @@ export default function TermsPage() {
           <section>
             <h2>13. Governing Law</h2>
             <p>
-              These Terms are governed by the laws of [jurisdiction to be confirmed], without regard to
-              conflict-of-law principles.
+              These Terms are governed by the laws of the State of Wyoming, USA, without regard to
+              conflict-of-law principles. The Service is operated by Korrali LLC, a Wyoming limited
+              liability company.
             </p>
           </section>
 

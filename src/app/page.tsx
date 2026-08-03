@@ -154,6 +154,10 @@ export default async function LandingPage() {
             <span className="text-xs">· part of <a href="https://korrali.com" className="hover:text-foreground transition-colors">Korrali</a></span>
           </div>
           <div className="flex flex-wrap gap-4 text-xs">
+            <a href="https://trust.korrali.com" className="hover:text-foreground transition-colors">Korrali Trust</a>
+            <a href="https://revenue.korrali.com" className="hover:text-foreground transition-colors">Korrali Revenue</a>
+            <a href="https://data.korrali.com" className="hover:text-foreground transition-colors">Korrali Data</a>
+            <a href="https://web.korrali.com" className="hover:text-foreground transition-colors">Korrali Web</a>
             <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-foreground transition-colors">Terms &amp; Conditions</Link>
           </div>
