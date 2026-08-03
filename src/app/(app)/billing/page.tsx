@@ -32,7 +32,7 @@ export default async function BillingPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Current plan: {tier === "TRIAL" ? "Trial" : tier === "PRO" ? "Pro" : "Free"}</CardTitle>
+            <CardTitle>Current plan: {tier === "TRIAL" ? "Free" : tier === "PRO" ? "Pro" : "Free"}</CardTitle>
             <CardDescription>
               {tier === "TRIAL" &&
                 `You're on a free trial with unlimited extractions. ${trial.daysRemaining} day${
@@ -89,9 +89,9 @@ export default async function BillingPage() {
                 {workspace ? (
                   stripeConfigured ? (
                     <div className="space-y-2">
-                      <StripeCheckoutButton interval="monthly">Upgrade monthly</StripeCheckoutButton>
-                      <StripeCheckoutButton interval="annual" variant="outline">
-                        Upgrade annual ({PRO_PLAN.annualPerMonth})
+                      <StripeCheckoutButton interval="monthly" className="bg-gradient-to-r from-[#10b981] to-[#3b82f6] hover:opacity-90 border-0 text-white">Buy Pro</StripeCheckoutButton>
+                      <StripeCheckoutButton interval="annual" className="bg-gradient-to-r from-[#10b981] to-[#3b82f6] hover:opacity-90 border-0 text-white">
+                        Buy Pro (Annual - {PRO_PLAN.annualPerMonth})
                       </StripeCheckoutButton>
                     </div>
                   ) : (

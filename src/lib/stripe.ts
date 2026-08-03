@@ -12,13 +12,11 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "sk_test_place
 export const STRIPE_PRICE_IDS = {
   proMonthly: process.env.STRIPE_PRICE_PRO_MONTHLY ?? "",
   proAnnual: process.env.STRIPE_PRICE_PRO_ANNUAL ?? "",
-  teamMonthly: process.env.STRIPE_PRICE_TEAM_MONTHLY ?? "",
-  teamAnnual: process.env.STRIPE_PRICE_TEAM_ANNUAL ?? "",
 } as const;
 
 // Re-exported for existing importers — the actual definitions live in
 // lib/pricing.ts, which has no Stripe SDK import and is safe for client
 // components to pull in directly.
 export type { BillingInterval } from "@/lib/pricing";
-export { FREE_PLAN, PRO_PLAN, TEAM_PLAN, FREE_TIER_MONTHLY_CAP, TRIAL_DAYS } from "@/lib/pricing";
+export { FREE_PLAN, PRO_PLAN, FREE_TIER_MONTHLY_CAP, TRIAL_DAYS } from "@/lib/pricing";
 

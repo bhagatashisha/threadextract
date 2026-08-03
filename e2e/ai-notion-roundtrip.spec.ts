@@ -34,6 +34,7 @@ test.describe("AI -> Notion round trip (real external APIs)", () => {
         rawTranscript: SAMPLE_TRANSCRIPT,
         notionToken: NOTION_TOKEN!,
         notionDatabaseId: NOTION_DATABASE_ID!,
+        slackUrl: "https://slack.com/app_redirect?team=T123&channel=C123&message_ts=123",
       });
 
       expect(result).not.toBeNull();

@@ -1,22 +1,18 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { encrypt, safeDecrypt } from "@/lib/crypto";
+import { safeDecrypt } from "@/lib/crypto";
 import { TRIGGER_EMOJI_OPTIONS, sanitizeTriggerEmojis } from "@/lib/trigger-emojis";
 import { revalidatePath } from "next/cache";
+import { Client as NotionClient, type DatabaseObjectResponse } from "@notionhq/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { SubmitButton } from "@/components/ui/submit-button";
 
-async function saveNotionConfig(formData: FormData) {
+async function disconnectNotion() {
   "use server";
 
   const session = await auth();
   if (!session?.user?.id) throw new Error("Not signed in");
-
-  const notionToken = formData.get("notionToken") as string;
-  const databaseId = formData.get("databaseId") as string;
 
   const workspace = await prisma.workspace.findFirst({
     where: { ownerUserId: session.user.id },
@@ -26,8 +22,8 @@ async function saveNotionConfig(formData: FormData) {
   await prisma.workspace.update({
     where: { id: workspace.id },
     data: {
-      notionAccessToken: encrypt(notionToken),
-      notionDatabaseId: databaseId,
+      notionAccessToken: null,
+      notionDatabaseId: null,
     },
   });
 
@@ -57,7 +53,10 @@ async function saveTriggerEmojis(formData: FormData) {
   revalidatePath("/settings");
 }
 
-export default async function SettingsPage() {
+export default async function SettingsPage(props: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+  const searchParams = await props.searchParams;
+  const error = searchParams?.error as string | undefined;
+
   const session = await auth();
   if (!session?.user?.id) redirect("/login?callbackUrl=%2Fsettings");
 
@@ -69,7 +68,19 @@ export default async function SettingsPage() {
     redirect("/dashboard");
   }
 
-  const existingNotionToken = workspace.notionAccessToken ? safeDecrypt(workspace.notionAccessToken) : "";
+  let notionDatabaseName: string | null = null;
+  let notionDatabaseUrl: string | null = null;
+  
+  if (workspace.notionAccessToken && workspace.notionDatabaseId) {
+    try {
+      const notion = new NotionClient({ auth: safeDecrypt(workspace.notionAccessToken) });
+      const db = await notion.databases.retrieve({ database_id: workspace.notionDatabaseId }) as DatabaseObjectResponse;
+      notionDatabaseName = db.title?.[0]?.plain_text || "Extracted Slack Threads";
+      notionDatabaseUrl = db.url || null;
+    } catch (e) {
+      console.error("Failed to fetch notion database details", e);
+    }
+  }
 
   return (
     <div className="max-w-3xl mx-auto py-10 px-4 space-y-6">
@@ -81,38 +92,67 @@ export default async function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Notion configuration</CardTitle>
-          <CardDescription>Connect the Notion database where extracted threads should be saved.</CardDescription>
+          <CardDescription>Connect Notion to automatically sync your extracted Slack threads.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={saveNotionConfig} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="notionToken">Notion Internal Integration Token</Label>
-              <Input
-                id="notionToken"
-                type="password"
-                name="notionToken"
-                defaultValue={existingNotionToken}
-                placeholder="secret_..."
-                required
-              />
-              <p className="text-xs text-muted-foreground">From your Notion Integrations dashboard.</p>
+          {error === "missing_insert" && (
+            <div className="mb-6 p-3 border rounded-lg bg-red-50 text-red-800 text-sm border-red-200">
+              <strong className="block mb-1 font-semibold">Missing Permissions</strong>
+              Your Notion integration requires &quot;Insert Content&quot; capabilities. Please go to your Notion Developer Dashboard, enable &quot;Insert Content&quot;, then reconnect here.
             </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="databaseId">Notion Database ID</Label>
-              <Input
-                id="databaseId"
-                type="text"
-                name="databaseId"
-                defaultValue={workspace.notionDatabaseId || ""}
-                placeholder="e.g., 1234567890abcdef"
-                required
-              />
-              <p className="text-xs text-muted-foreground">The ID in the URL of your target database.</p>
+          )}
+          {error === "no_pages" && (
+            <div className="mb-6 p-3 border rounded-lg bg-red-50 text-red-800 text-sm border-red-200">
+              <strong className="block mb-1 font-semibold">No Pages Selected</strong>
+              You must grant access to at least one Notion page during the connection flow so we can create the database for you. Please try again.
             </div>
+          )}
+          
+          {workspace.notionAccessToken ? (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between p-3 border rounded-lg bg-green-50/50 border-green-200">
+                <div className="flex items-center gap-2">
+                  <span className="text-green-700 font-medium">✅ Connected to Notion</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <form action={disconnectNotion}>
+                    <button type="submit" className="text-sm text-red-600 hover:underline font-medium">Disconnect</button>
+                  </form>
+                </div>
+              </div>
 
-            <SubmitButton loadingLabel="Saving…">Save configuration</SubmitButton>
-          </form>
+              {notionDatabaseName ? (
+                <div className="p-5 border rounded-lg bg-muted/20">
+                  <h3 className="font-medium text-sm text-muted-foreground mb-3">Destination Database</h3>
+                  <div className="flex items-center justify-between bg-background border rounded p-3">
+                    <span className="font-semibold text-foreground flex items-center gap-2">
+                      <svg viewBox="0 0 15 15" width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4.5 4.5V1H1V4.5H4.5ZM4.5 4.5V10.5H1V4.5H4.5ZM4.5 10.5V14H1V10.5H4.5ZM10.5 4.5V1H7V4.5H10.5ZM10.5 4.5V10.5H7V4.5H10.5ZM10.5 10.5V14H7V10.5H10.5ZM14 4.5V1H11.5V4.5H14ZM14 4.5V10.5H11.5V4.5H14ZM14 10.5V14H11.5V10.5H14Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
+                      {notionDatabaseName}
+                    </span>
+                    {notionDatabaseUrl && (
+                      <a href={notionDatabaseUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline font-medium">
+                        Open in Notion ↗
+                      </a>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-3">
+                    ThreadExtract automatically created this database for you. You can drag and drop it anywhere in your Notion workspace.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-3 border rounded-lg bg-yellow-50/50 border-yellow-200 text-yellow-800 text-sm">
+                  We connected to Notion, but couldn&apos;t find the destination database. Please disconnect and try again.
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4 text-center py-6">
+              <p className="text-sm text-muted-foreground mb-4">Connect your Notion account and we will automatically set up an <strong>Extracted Slack Threads</strong> database for you.</p>
+              <a href="/api/notion/oauth" className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90">
+                Connect Notion
+              </a>
+            </div>
+          )}
         </CardContent>
       </Card>
 

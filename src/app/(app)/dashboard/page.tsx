@@ -7,6 +7,7 @@ import { buildSlackOAuthUrl } from "@/lib/slack-oauth-url";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { AutoRefresh } from "@/components/auto-refresh";
 
 function relativeTime(date: Date): string {
   const seconds = Math.round((Date.now() - date.getTime()) / 1000);
@@ -63,6 +64,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="max-w-4xl mx-auto py-12 px-6 space-y-8">
+      <AutoRefresh intervalMs={3000} />
       <div>
         <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Welcome back</h1>
         <p className="text-base text-muted-foreground mt-2">

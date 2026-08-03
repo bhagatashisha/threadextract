@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Workspace } from "@prisma/client";
+import { FREE_TIER_MONTHLY_CAP } from "@/lib/pricing";
 
 const findUnique = vi.fn();
 const count = vi.fn();
@@ -84,14 +85,14 @@ describe("billing", () => {
 
     it("allows FREE workspaces under the monthly cap", async () => {
       findUnique.mockResolvedValue(null);
-      count.mockResolvedValue(4);
+      count.mockResolvedValue(FREE_TIER_MONTHLY_CAP - 1);
       const workspace = makeWorkspace({ trialEndsAt: new Date(Date.now() - 1000) });
       expect(await canUseFeature(workspace)).toBe(true);
     });
 
     it("blocks FREE workspaces at the monthly cap", async () => {
       findUnique.mockResolvedValue(null);
-      count.mockResolvedValue(5);
+      count.mockResolvedValue(FREE_TIER_MONTHLY_CAP);
       const workspace = makeWorkspace({ trialEndsAt: new Date(Date.now() - 1000) });
       expect(await canUseFeature(workspace)).toBe(false);
     });

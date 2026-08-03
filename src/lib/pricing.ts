@@ -33,20 +33,5 @@ export const PRO_PLAN = {
   ],
 };
 
-export const TEAM_PLAN = {
-  label: "Team",
-  monthlyPrice: "$99/mo",
-  annualPrice: "$990/yr",
-  annualPerMonth: "$83/mo",
-  tagline: "Advanced features for scaling teams.",
-  features: [
-    "Everything in Pro",
-    "Multiple Notion databases",
-    "Channel → database routing",
-    "Analytics dashboard",
-    "Priority support",
-  ],
-};
-
 export const TRIAL_DAYS = 14;
 

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { safeDecrypt } from "@/lib/crypto";
 import { canUseFeature } from "@/lib/billing";
 import { markdownToNotionBlocks } from "@/lib/notion";
+import { redactSecrets } from "@/lib/redact";
 
 const GEMINI_TIMEOUT_MS = 15000;
 const GROQ_TIMEOUT_MS = 10000;
@@ -51,10 +52,14 @@ function buildExtractionPrompt(rawTranscript: string): string {
       You are an expert technical documentation assistant. You will be provided with a raw, noisy Slack thread.
       Your job is to extract the core knowledge from this thread. Ignore all pleasantries, memes, side-conversations, and dead ends.
 
+      Structure the output as a clear, professional summary. If the thread discusses a problem and solution, use '### The Problem' and '### The Solution'. If it is a general discussion, announcement, or decision, use appropriate headings like '### Summary' or '### Key Decisions'.
+
+      CRITICAL: If the thread is just a single short message or greeting, do NOT output meta-commentary like "No discussion was provided" or "This is an empty thread". Just output exactly what was said under a '### Message' heading.
+
       Output a valid JSON object with exactly two keys (DO NOT wrap in markdown ticks, just raw JSON, no other text):
       {
-        "title": "A short, professional title for this issue (max 6 words)",
-        "markdown_content": "A clean markdown string containing a '### The Problem' section and a '### The Solution' section."
+        "title": "A short, professional title for this thread (max 6 words)",
+        "markdown_content": "A clean markdown string containing the structured summary."
       }
 
       Slack Thread:
@@ -69,7 +74,8 @@ async function generateContentWithFallback(prompt: string): Promise<string | nul
     try {
       console.log("Attempting generation with Gemini...");
       const genAI = new GoogleGenerativeAI(key);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const modelName = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+      const model = genAI.getGenerativeModel({ model: modelName });
       const result = await withTimeout(model.generateContent(prompt), GEMINI_TIMEOUT_MS, "Gemini");
       return result.response.text();
     } catch (error) {
@@ -86,7 +92,7 @@ async function generateContentWithFallback(prompt: string): Promise<string | nul
       const completion = await withTimeout(
         groq.chat.completions.create({
           messages: [{ role: "user", content: prompt }],
-          model: "llama-3.3-70b-versatile",
+          model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
         }),
         GROQ_TIMEOUT_MS,
         "Groq",
@@ -120,8 +126,13 @@ export async function extractAndPublish(opts: {
   rawTranscript: string;
   notionToken: string;
   notionDatabaseId: string;
+  slackUrl: string;
 }): Promise<ExtractAndPublishResult | null> {
-  const prompt = buildExtractionPrompt(opts.rawTranscript);
+  // Redact obvious secret material (tokens, keys, card numbers) before the
+  // raw transcript leaves our infrastructure — threads reacted to for
+  // "tribal knowledge" often include exactly the kind of debugging output
+  // that has credentials pasted into it.
+  const prompt = buildExtractionPrompt(redactSecrets(opts.rawTranscript));
 
   const responseText = await generateContentWithFallback(prompt);
   if (!responseText) {
@@ -147,6 +158,8 @@ export async function extractAndPublish(opts: {
   // Push to Notion, with real headings/bullets instead of one flat paragraph
   const notion = new NotionClient({ auth: opts.notionToken });
 
+  const enrichedMarkdown = `[View Original Slack Thread](${opts.slackUrl})\n\n---\n\n${aiData.markdown_content}`;
+
   const page = await notion.pages.create({
     parent: { database_id: opts.notionDatabaseId },
     properties: {
@@ -154,7 +167,7 @@ export async function extractAndPublish(opts: {
         title: [{ text: { content: aiData.title } }],
       },
     },
-    children: markdownToNotionBlocks(aiData.markdown_content),
+    children: markdownToNotionBlocks(enrichedMarkdown),
   });
 
   const notionPageUrl = "url" in page ? page.url : null;
@@ -173,6 +186,7 @@ export async function processSlackThread(
   channelId: string,
   messageTs: string,
   reaction: string,
+  reactionUserId: string,
 ) {
   try {
     // 1. Fetch workspace credentials
@@ -182,6 +196,14 @@ export async function processSlackThread(
 
     if (!workspace || !workspace.slackAccessToken || !workspace.notionAccessToken || !workspace.notionDatabaseId) {
       console.error(`Missing credentials for workspace ${slackTeamId}`);
+      if (workspace?.slackAccessToken) {
+        const slack = new WebClient(safeDecrypt(workspace.slackAccessToken));
+        await slack.chat.postMessage({
+          channel: channelId,
+          thread_ts: messageTs,
+          text: `❌ <@${reactionUserId}> Extraction failed: Notion is not connected or database is not selected. Please configure it in the dashboard.`,
+        }).catch(console.error);
+      }
       return;
     }
 
@@ -197,6 +219,12 @@ export async function processSlackThread(
     // this is the actual cost-control point, not just a UI gate.
     if (!(await canUseFeature(workspace))) {
       console.log(`Workspace ${slackTeamId} is over its free-tier extraction cap for this month.`);
+      const slack = new WebClient(safeDecrypt(workspace.slackAccessToken));
+      await slack.chat.postMessage({
+        channel: channelId,
+        thread_ts: messageTs,
+        text: `❌ <@${reactionUserId}> Extraction failed: Your workspace has reached its monthly free-tier limit. Please upgrade to Pro in the dashboard.`,
+      }).catch(console.error);
       return;
     }
 
@@ -220,18 +248,46 @@ export async function processSlackThread(
       .map((m) => `User ${m.user || "Unknown"}: ${m.text}`)
       .join("\n\n");
 
+    // Universal slack link format:
+    const slackUrl = `https://slack.com/app_redirect?team=${slackTeamId}&channel=${channelId}&message_ts=${messageTs}`;
+
     // 5-7. AI processing + Notion push + usage recording
     const result = await extractAndPublish({
       workspaceId: workspace.id,
       rawTranscript,
       notionToken,
       notionDatabaseId: workspace.notionDatabaseId,
+      slackUrl,
     });
 
     if (result) {
       console.log(`Successfully extracted and saved thread ${messageTs} to Notion.`);
+      await slack.chat.postMessage({
+        channel: channelId,
+        thread_ts: messageTs,
+        text: `✅ <@${reactionUserId}> Thread extracted successfully! <${result.notionPageUrl}|View in Notion>`,
+      });
+    } else {
+      await slack.chat.postMessage({
+        channel: channelId,
+        thread_ts: messageTs,
+        text: `❌ <@${reactionUserId}> Extraction failed: The AI models were unable to generate content. This might be due to a temporary service outage.`,
+      });
     }
   } catch (error) {
     console.error("Error processing slack thread:", error);
+    try {
+      const workspace = await prisma.workspace.findUnique({ where: { slackTeamId } });
+      if (workspace?.slackAccessToken) {
+        const slack = new WebClient(safeDecrypt(workspace.slackAccessToken));
+        await slack.chat.postMessage({
+          channel: channelId,
+          thread_ts: messageTs,
+          text: `❌ <@${reactionUserId}> Extraction failed: An unexpected internal error occurred.`,
+        });
+      }
+    } catch (e) {
+      console.error("Failed to send error message to slack:", e);
+    }
   }
 }

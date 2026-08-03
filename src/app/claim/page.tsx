@@ -67,11 +67,23 @@ export default async function ClaimPage({
     );
   }
 
-  if (workspace.ownerUserId !== session.user.id) {
+  if (workspace.ownerUserId === null) {
     await prisma.workspace.update({
       where: { id: workspace.id },
       data: { ownerUserId: session.user.id },
     });
+  } else if (workspace.ownerUserId !== session.user.id) {
+    // The claim token has no single-use enforcement, so it stays valid for
+    // its whole TTL — without this check, anyone who obtains a leaked claim
+    // link (Slack channel history, browser history, a shared install link)
+    // could re-visit it and silently reassign an already-claimed workspace
+    // to their own account.
+    return (
+      <ErrorCard
+        title="Workspace already connected"
+        message="This Slack workspace is already connected to a different account. If that's unexpected, contact support."
+      />
+    );
   }
 
   redirect("/dashboard");

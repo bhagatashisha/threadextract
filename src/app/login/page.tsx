@@ -47,15 +47,15 @@ export default async function LoginPage({
         </div>
       </header>
 
-      <main className="flex-1 flex items-center justify-center px-6 py-12 relative overflow-hidden">
-        <div className="absolute top-[20%] left-[30%] h-[400px] w-[400px] rounded-full bg-[#10b981]/10 blur-[100px] pointer-events-none" />
-        <div className="absolute top-[40%] right-[30%] h-[500px] w-[500px] rounded-full bg-blue-500/10 blur-[120px] pointer-events-none" />
+      <main className="flex-1 flex items-start justify-center px-6 pt-24 pb-12 relative overflow-hidden">
+        <div className="absolute top-[10%] left-[25%] h-[500px] w-[500px] rounded-full bg-[#10b981]/10 blur-[120px] pointer-events-none" />
+        <div className="absolute top-[20%] right-[25%] h-[600px] w-[600px] rounded-full bg-[#3b82f6]/10 blur-[150px] pointer-events-none" />
 
-        <div className="w-full max-w-sm relative z-10">
-          <Card className="relative overflow-hidden border border-border shadow-lg rounded-2xl">
-            <CardHeader className="text-center pt-8">
-              <CardTitle className="text-2xl font-bold tracking-tight">Welcome</CardTitle>
-              <CardDescription className="mt-2 text-sm">
+        <div className="w-full max-w-sm relative z-10 mt-12">
+          <Card className="relative overflow-hidden border border-border/50 shadow-2xl shadow-blue-900/5 rounded-3xl bg-card/60 backdrop-blur-xl">
+            <CardHeader className="text-center pt-10">
+              <CardTitle className="text-3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-foreground to-foreground/70">Welcome</CardTitle>
+              <CardDescription className="mt-3 text-sm text-muted-foreground/80 font-medium">
                 Continue with Google or a magic link. No password required.
               </CardDescription>
             </CardHeader>
